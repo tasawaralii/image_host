@@ -76,6 +76,7 @@ async def list_images(x_api_key: str = Header(None)):
     for row in rows:
         file_id = row["id"]
         file_sizes = parse_file_sizes(row["file_sizes"])
+        row_dict = dict(row)
         images.append(
             {
                 "file_id": file_id,
@@ -83,7 +84,7 @@ async def list_images(x_api_key: str = Header(None)):
                 "uploaded_at": row["uploaded_at"],
                 "dimensions": {"width": row["original_width"], "height": row["original_height"]},
                 "file_sizes": file_sizes,
-                "keywords": row.get("keywords", ""),
+                "keywords": row_dict.get("keywords", ""),
                 "urls": build_urls(file_id, RESOLUTIONS),
             }
         )
@@ -106,13 +107,14 @@ async def get_image(file_id: str, x_api_key: str = Header(None)):
         raise HTTPException(status_code=404, detail="Image not found")
 
     file_sizes = parse_file_sizes(row["file_sizes"])
+    row_dict = dict(row)
     return {
         "file_id": row["id"],
         "original_filename": row["original_filename"],
         "uploaded_at": row["uploaded_at"],
         "dimensions": {"width": row["original_width"], "height": row["original_height"]},
         "file_sizes": file_sizes,
-        "keywords": row.get("keywords", ""),
+        "keywords": row_dict.get("keywords", ""),
         "urls": build_urls(file_id, RESOLUTIONS),
     }
 
@@ -140,6 +142,7 @@ async def search_images(q: Optional[str] = None, x_api_key: str = Header(None)):
     for row in rows:
         file_id = row["id"]
         file_sizes = parse_file_sizes(row["file_sizes"])
+        row_dict = dict(row)
         images.append(
             {
                 "file_id": file_id,
@@ -147,7 +150,7 @@ async def search_images(q: Optional[str] = None, x_api_key: str = Header(None)):
                 "uploaded_at": row["uploaded_at"],
                 "dimensions": {"width": row["original_width"], "height": row["original_height"]},
                 "file_sizes": file_sizes,
-                "keywords": row.get("keywords", ""),
+                "keywords": row_dict.get("keywords", ""),
                 "urls": build_urls(file_id, RESOLUTIONS),
             }
         )
