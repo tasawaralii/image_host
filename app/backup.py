@@ -41,7 +41,10 @@ class GoogleDriveBackup:
                     )
 
                 flow = InstalledAppFlow.from_client_secrets_file(OAUTH_CLIENT_FILE, SCOPES)
-                creds = flow.run_local_server(port=0)
+                try:
+                    creds = flow.run_local_server(port=0)
+                except Exception:
+                    creds = flow.run_console()
 
                 with open(OAUTH_CREDENTIALS_FILE, 'w') as token:
                     token.write(creds.to_json())
