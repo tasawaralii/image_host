@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Optional
 
-from fastapi import APIRouter, File, Header, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, Header, HTTPException, UploadFile
 
 from ..config import API_KEY, DB_PATH, RESOLUTIONS, UPLOAD_DIR
 from ..db import get_db
@@ -11,7 +12,11 @@ router = APIRouter()
 
 
 @router.post("/upload")
-async def upload_image(file: UploadFile = File(...), x_api_key: str = Header(None)):
+async def upload_image(
+    file: UploadFile = File(...),
+    keywords: Optional[str] = Form(None),
+    x_api_key: str = Header(None)
+):
     if x_api_key != API_KEY:
         raise HTTPException(status_code=403, detail="Invalid API Key")
 
@@ -29,8 +34,8 @@ async def upload_image(file: UploadFile = File(...), x_api_key: str = Header(Non
     c = conn.cursor()
     c.execute(
         """
-        INSERT INTO images (id, original_filename, uploaded_at, original_width, original_height, file_sizes)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO images (id, original_filename, uploaded_at, original_width, original_height, file_sizes, keywords)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
         (
             file_id,
@@ -39,6 +44,7 @@ async def upload_image(file: UploadFile = File(...), x_api_key: str = Header(Non
             original_width,
             original_height,
             serialize_file_sizes(file_sizes),
+            keywords or "",
         ),
     )
     conn.commit()
@@ -50,6 +56,7 @@ async def upload_image(file: UploadFile = File(...), x_api_key: str = Header(Non
         "original_filename": file.filename,
         "dimensions": {"width": original_width, "height": original_height},
         "file_sizes": file_sizes,
+        "keywords": keywords or "",
         "urls": build_urls(file_id, RESOLUTIONS),
     }
 
@@ -76,6 +83,7 @@ async def list_images(x_api_key: str = Header(None)):
                 "uploaded_at": row["uploaded_at"],
                 "dimensions": {"width": row["original_width"], "height": row["original_height"]},
                 "file_sizes": file_sizes,
+                "keywords": row.get("keywords", ""),
                 "urls": build_urls(file_id, RESOLUTIONS),
             }
         )
@@ -104,8 +112,47 @@ async def get_image(file_id: str, x_api_key: str = Header(None)):
         "uploaded_at": row["uploaded_at"],
         "dimensions": {"width": row["original_width"], "height": row["original_height"]},
         "file_sizes": file_sizes,
+        "keywords": row.get("keywords", ""),
         "urls": build_urls(file_id, RESOLUTIONS),
     }
+
+
+@router.get("/search")
+async def search_images(q: Optional[str] = None, x_api_key: str = Header(None)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=403, detail="Invalid API Key")
+
+    conn = get_db(DB_PATH)
+    c = conn.cursor()
+    
+    if q:
+        c.execute(
+            "SELECT * FROM images WHERE keywords LIKE ? ORDER BY uploaded_at DESC",
+            (f"%{q}%",)
+        )
+    else:
+        c.execute("SELECT * FROM images ORDER BY uploaded_at DESC")
+    
+    rows = c.fetchall()
+    conn.close()
+
+    images = []
+    for row in rows:
+        file_id = row["id"]
+        file_sizes = parse_file_sizes(row["file_sizes"])
+        images.append(
+            {
+                "file_id": file_id,
+                "original_filename": row["original_filename"],
+                "uploaded_at": row["uploaded_at"],
+                "dimensions": {"width": row["original_width"], "height": row["original_height"]},
+                "file_sizes": file_sizes,
+                "keywords": row.get("keywords", ""),
+                "urls": build_urls(file_id, RESOLUTIONS),
+            }
+        )
+
+    return {"total": len(images), "images": images, "query": q}
 
 
 @router.delete("/images/{file_id}")

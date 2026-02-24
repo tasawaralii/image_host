@@ -33,7 +33,8 @@ def init_db(db_path: str = DB_PATH) -> None:
             uploaded_at TIMESTAMP,
             original_width INTEGER,
             original_height INTEGER,
-            file_sizes TEXT
+            file_sizes TEXT,
+            keywords TEXT
         )
         """
     )
